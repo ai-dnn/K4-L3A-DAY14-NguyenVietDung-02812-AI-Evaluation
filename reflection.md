@@ -389,6 +389,19 @@ nhau:
 
 - Ngay cả khi reasoning = 0 tokens, answer vẫn khác nhau. Vậy randomness đến
   từ sampling, không phải từ reasoning.
+- **Kiểm tra giả thuyết "temperature chỉ có tác dụng khi tắt reasoning".**
+  Gọi mỗi prompt 5 lần, reasoning tắt hoặc `effort = none`:
+  - `temperature=0` cho 3/5, 5/5, 5/5 answer khác nhau (E05, M04, H02).
+    `temperature=1.5` cho **y hệt** 3/5, 5/5, 5/5, tức temperature không làm
+    thay đổi gì.
+  - Khi yêu cầu OpenRouter chỉ route tới provider hỗ trợ đủ tham số
+    (`provider.require_parameters = true`) kèm `temperature`, request bị từ
+    chối: "No endpoints found that can handle the requested parameters".
+  - Không endpoint nào trong 7 endpoint của gpt-6-luna (OpenAI, Azure, Amazon
+    Bedrock) liệt kê `temperature`.
+  - Kết luận: qua OpenRouter, `temperature` bị lược bỏ trước khi tới model,
+    bất kể chế độ reasoning. Giả thuyết có thể đúng với OpenAI API trực tiếp,
+    nhưng lab này dùng OpenRouter nên không kiểm chứng được.
 - `seed` bị từ chối hoặc không có tác dụng.
 - **Không có cách nào làm output lặp lại được với model này.**
 

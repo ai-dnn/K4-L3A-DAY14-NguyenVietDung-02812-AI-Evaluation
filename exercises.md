@@ -319,8 +319,9 @@ hay generation?
 >
 > **Vấn đề thật nằm ở generation, nhưng pass rate 20% phóng đại nó.** Ba lý do:
 >
-> 1. **Relevance thấp chủ yếu do heuristic.** gpt-6-luna trả lời ngắn và không
->    lặp lại câu hỏi. Ví dụ E05 "The written repair quote is valid for seven
+> 1. **Relevance thấp chủ yếu do heuristic.** gpt-6-luna ít lặp lại từ của câu
+>    hỏi hơn: 48% so với 55% của gpt-4o-mini, dù answer không ngắn hơn (trung
+>    bình 30 so với 26 content tokens). Ví dụ E05 "The written repair quote is valid for seven
 >    calendar days." đúng hoàn toàn nhưng chỉ đạt relevance 0.444, vì metric đếm
 >    cả "how", "long", "out", "issue". Chỉ cần bỏ qua từ hỏi/đại từ, E02, E04,
 >    M06 đã pass.
@@ -330,7 +331,9 @@ hay generation?
 >    faithfulness là 0.756; RAGAS chấm 0.902.
 > 3. **Noise giữa các lần chạy lớn.** Chạy lặp đúng cấu hình cho pass rate 35%.
 >    Chênh lệch overall trung bình mỗi case là 0.054, tối đa 0.202; 3 cases đổi
->    pass/fail. Chỉ 1/20 answers giống hệt nhau giữa hai run dù temperature=0.
+>    pass/fail. Chỉ 1/20 answers giống hệt nhau giữa hai run: gpt-6-luna
+>    không hỗ trợ tham số `temperature`, nên `temperature=0` trong code bị bỏ
+>    qua (xem `reflection.md`, mục 2b).
 >
 > Lỗi generation thật:
 >
@@ -343,8 +346,9 @@ hay generation?
 >
 > So với gpt-4o-mini, answer của gpt-6-luna **tốt hơn về hành vi**: A01 có
 > redirect, M03 không còn claim refund bịa. Nhưng pass rate lại thấp hơn
-> (20% so với 45%). Heuristic phạt câu trả lời ngắn gọn và phạt chi tiết đúng
-> nằm ngoài gold context.
+> (20% so với 45%). Heuristic phạt answer không lặp lại từ của câu hỏi, và phạt
+> chi tiết đúng nằm ngoài gold context. Riêng hai run gpt-6-luna đã chênh nhau
+> 4 và 7 cases pass, nên một phần khoảng cách với gpt-4o-mini (9) là noise.
 
 ### Exercise 3.3 — LLM-as-a-Judge Rubric Design
 

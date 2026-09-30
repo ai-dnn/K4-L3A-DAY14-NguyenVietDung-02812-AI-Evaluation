@@ -1,0 +1,188 @@
+{
+ "model": "openai/gpt-6-luna",
+ "top_k": 5,
+ "max_output_tokens": 2000,
+ "note": "One replay of each golden prompt; reasoning vs visible output tokens.",
+ "rows": [
+  {
+   "id": "E01",
+   "difficulty": "easy",
+   "status": "completed",
+   "reasoning_tokens": 0,
+   "visible_tokens": 27,
+   "total": 27,
+   "exceeds_300": false
+  },
+  {
+   "id": "E02",
+   "difficulty": "easy",
+   "status": "completed",
+   "reasoning_tokens": 0,
+   "visible_tokens": 38,
+   "total": 38,
+   "exceeds_300": false
+  },
+  {
+   "id": "E03",
+   "difficulty": "easy",
+   "status": "completed",
+   "reasoning_tokens": 0,
+   "visible_tokens": 48,
+   "total": 48,
+   "exceeds_300": false
+  },
+  {
+   "id": "E04",
+   "difficulty": "easy",
+   "status": "completed",
+   "reasoning_tokens": 0,
+   "visible_tokens": 34,
+   "total": 34,
+   "exceeds_300": false
+  },
+  {
+   "id": "E05",
+   "difficulty": "easy",
+   "status": "completed",
+   "reasoning_tokens": 0,
+   "visible_tokens": 8,
+   "total": 8,
+   "exceeds_300": false
+  },
+  {
+   "id": "M01",
+   "difficulty": "medium",
+   "status": "completed",
+   "reasoning_tokens": 123,
+   "visible_tokens": 57,
+   "total": 180,
+   "exceeds_300": false
+  },
+  {
+   "id": "M02",
+   "difficulty": "medium",
+   "status": "completed",
+   "reasoning_tokens": 0,
+   "visible_tokens": 61,
+   "total": 61,
+   "exceeds_300": false
+  },
+  {
+   "id": "M03",
+   "difficulty": "medium",
+   "status": "completed",
+   "reasoning_tokens": 98,
+   "visible_tokens": 149,
+   "total": 247,
+   "exceeds_300": false
+  },
+  {
+   "id": "M04",
+   "difficulty": "medium",
+   "status": "completed",
+   "reasoning_tokens": 0,
+   "visible_tokens": 32,
+   "total": 32,
+   "exceeds_300": false
+  },
+  {
+   "id": "M05",
+   "difficulty": "medium",
+   "status": "completed",
+   "reasoning_tokens": 88,
+   "visible_tokens": 68,
+   "total": 156,
+   "exceeds_300": false
+  },
+  {
+   "id": "M06",
+   "difficulty": "medium",
+   "status": "completed",
+   "reasoning_tokens": 0,
+   "visible_tokens": 79,
+   "total": 79,
+   "exceeds_300": false
+  },
+  {
+   "id": "M07",
+   "difficulty": "medium",
+   "status": "completed",
+   "reasoning_tokens": 0,
+   "visible_tokens": 47,
+   "total": 47,
+   "exceeds_300": false
+  },
+  {
+   "id": "H01",
+   "difficulty": "hard",
+   "status": "completed",
+   "reasoning_tokens": 360,
+   "visible_tokens": 63,
+   "total": 423,
+   "exceeds_300": true
+  },
+  {
+   "id": "H02",
+   "difficulty": "hard",
+   "status": "completed",
+   "reasoning_tokens": 58,
+   "visible_tokens": 70,
+   "total": 128,
+   "exceeds_300": false
+  },
+  {
+   "id": "H03",
+   "difficulty": "hard",
+   "status": "completed",
+   "reasoning_tokens": 123,
+   "visible_tokens": 52,
+   "total": 175,
+   "exceeds_300": false
+  },
+  {
+   "id": "H04",
+   "difficulty": "hard",
+   "status": "completed",
+   "reasoning_tokens": 190,
+   "visible_tokens": 156,
+   "total": 346,
+   "exceeds_300": true
+  },
+  {
+   "id": "H05",
+   "difficulty": "hard",
+   "status": "completed",
+   "reasoning_tokens": 117,
+   "visible_tokens": 147,
+   "total": 264,
+   "exceeds_300": false
+  },
+  {
+   "id": "A01",
+   "difficulty": "adversarial",
+   "status": "completed",
+   "reasoning_tokens": 0,
+   "visible_tokens": 43,
+   "total": 43,
+   "exceeds_300": false
+  },
+  {
+   "id": "A02",
+   "difficulty": "adversarial",
+   "status": "completed",
+   "reasoning_tokens": 60,
+   "visible_tokens": 50,
+   "total": 110,
+   "exceeds_300": false
+  },
+  {
+   "id": "A03",
+   "difficulty": "adversarial",
+   "status": "completed",
+   "reasoning_tokens": 27,
+   "visible_tokens": 37,
+   "total": 64,
+   "exceeds_300": false
+  }
+ ]
+}

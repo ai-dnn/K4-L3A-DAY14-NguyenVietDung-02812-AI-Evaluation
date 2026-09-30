@@ -30,7 +30,7 @@ answer/context trace trong `artifacts/actual_answers.json` trước khi kết lu
 | Context Recall | 0.886 | 0.474 (H03) | 1.000 (E04, E05, M02, M06) | Tốt: 16/20 cases ≥ 0.8. Chỉ H03 thiếu evidence thật (BM25 không nối "dropped/cracked" với "accidental impact"). Giống hệt run gpt-4o-mini vì cùng retriever. |
 | Context Precision | 0.922 | 0.250 (A01) | 1.000 (14 cases) | Tốt. A01 thấp vì câu out-of-scope không match chunk nào; chunk scope rule chỉ đứng hạng 4. |
 | Faithfulness | 0.590 | 0.148 (H03) | 0.933 (E04) | Significant issues theo heuristic. Nhưng metric đo so với **gold context**: đo với retrieved chunks đạt 0.756, RAGAS 0.902. |
-| Relevance | 0.478 | 0.235 (A03) | 0.824 (M03) | Yếu nhất (17/20 cases < 0.6). Chủ yếu do heuristic: gpt-6-luna trả lời ngắn, không lặp từ hỏi ("how", "when", "I", "my"). |
+| Relevance | 0.478 | 0.235 (A03) | 0.824 (M03) | Yếu nhất (17/20 cases < 0.6). Chủ yếu do heuristic: gpt-6-luna ít lặp lại từ của câu hỏi (48% so với 55% của gpt-4o-mini; answer không ngắn hơn), trong khi metric đếm cả "how", "when", "I", "my". |
 | Completeness | 0.667 | 0.290 (A01) | 0.944 (E02) | Needs work. Thấp nhất ở adversarial và ở answer bị cắt cụt (H04 0.393). |
 | Overall Score | 0.578 | 0.292 (A03) | 0.770 (E04) | Không case nào ≥ 0.8. Theo độ khó: easy 0.679, medium 0.622, hard 0.535, adversarial 0.379. |
 
@@ -78,7 +78,8 @@ Dùng ít nhất hai metrics để bảo vệ kết luận.
 >
 > **3. Một run không đủ tin cậy.** Chạy lặp cùng cấu hình cho pass rate 35%.
 > Chênh lệch overall mỗi case trung bình 0.054, tối đa 0.202; 3 cases đổi
-> pass/fail; chỉ 1/20 answers giống hệt nhau dù temperature=0.
+> pass/fail; chỉ 1/20 answers giống hệt nhau, vì model bỏ qua `temperature`
+> (mục 2b).
 >
 > **4. Lỗi generation thật:**
 >
@@ -323,6 +324,123 @@ Relevance: 0.545 | Completeness: 0.314 | Overall: 0.405
 
 ---
 
+## 2b. Vì sao các vấn đề hệ thống xảy ra (root-cause diagnostics)
+
+Ba vấn đề không gắn với một case riêng lẻ: answer bị cắt cụt, kết quả không
+lặp lại được giữa các run, và pass rate giảm khi đổi sang model tốt hơn. Mỗi
+giả thuyết dưới đây được kiểm tra bằng thí nghiệm. Số liệu chi tiết nằm trong
+`artifacts/diagnostics/reasoning_usage.json`.
+
+### (1) Answer bị cắt cụt (H04 ở mọi run 300 tokens, H01 ở một run)
+
+**Cơ chế.** gpt-6-luna là reasoning model: `max_output_tokens` tính **cả
+reasoning tokens ẩn lẫn phần answer nhìn thấy**. Code gốc đặt 300 tokens, giá
+trị hợp lý cho gpt-4o-mini (không có reasoning), nhưng quá chặt cho model mới.
+
+**Bằng chứng.** Replay cả 20 prompt với budget 2000 và đo usage:
+
+| Difficulty | Reasoning tokens (TB) | Visible tokens (TB) | Tổng (TB) |
+|---|---:|---:|---:|
+| easy | 0 | 31 | 31 |
+| medium | 44 | 70 | 114 |
+| hard | 170 | 98 | 268 |
+| adversarial | 29 | 43 | 72 |
+
+- **Model tự chỉnh lượng reasoning theo độ khó.** Câu hard dùng trung bình 268
+  tokens, sát trần 300.
+- **Lượng reasoning dao động giữa các lần gọi.** Cùng prompt H02 dùng 49, 0,
+  50, 0 reasoning tokens trong 4 lần gọi.
+- **Hệ quả:** câu hard lúc lọt dưới trần, lúc vượt. Trong replay này, H01
+  (360 + 63) và H04 (190 + 156) vượt 300. Đó là lý do H01 chỉ bị cắt ở một
+  run.
+
+**Vì sao không bị phát hiện.**
+
+- API trả `status="incomplete"` (`reason=max_output_tokens`), nhưng
+  `OpenAIGenerator.generate()` chỉ đọc `output_text`.
+- `domain_assistant.py` chỉ báo lỗi khi answer *rỗng*, không kiểm tra answer
+  *dở dang*.
+- Evaluator cũng không có check cho trường hợp này: RAGAS/DeepEval chấm
+  faithfulness H04 là 0.80 / 0.75.
+
+**Fix (đã kiểm chứng một phần).**
+
+- `max_output_tokens=800` cho 0/20 answer bị cắt, và H04 pass.
+- Fix hoàn chỉnh cần thêm: coi `status != "completed"` là lỗi (raise hoặc
+  retry), và log reasoning tokens để theo dõi budget.
+
+### (2) Kết quả không lặp lại được dù code đặt `temperature=0`
+
+**Cơ chế.** Metadata của OpenRouter cho gpt-6-luna không có `temperature`
+trong `supported_parameters`, còn gpt-4o-mini thì có. Tham số `temperature=0`
+**bị bỏ qua mà không báo lỗi**, nên model sinh ở chế độ sampling mặc định.
+
+**Bằng chứng.** Gọi cùng một prompt 4 lần cho mỗi cấu hình, đếm số answer khác
+nhau:
+
+| Cấu hình | E05 | M04 | H02 |
+|---|---:|---:|---:|
+| mặc định (`temperature=0` bị bỏ qua) | 1/4 | 4/4 | 4/4 |
+| `reasoning.effort = none` | 3/4 | 4/4 | 4/4 |
+| `reasoning.effort = minimal` | 4/4 | 4/4 | 4/4 |
+| `reasoning.effort = low` | 3/4 | 4/4 | 4/4 |
+| `seed = 7` (Responses API) | lỗi 400 | lỗi 400 | lỗi 400 |
+| `seed = 7` (Chat Completions) | — | 4/4 | — |
+
+- Ngay cả khi reasoning = 0 tokens, answer vẫn khác nhau. Vậy randomness đến
+  từ sampling, không phải từ reasoning.
+- `seed` bị từ chối hoặc không có tác dụng.
+- **Không có cách nào làm output lặp lại được với model này.**
+
+**Hệ quả với evaluation.**
+
+- Hai run cùng cấu hình cho pass rate 20% và 35%.
+- Overall mỗi case lệch trung bình 0.054, tối đa 0.202.
+- Chỉ retrieval metrics là deterministic (BM25).
+- Do đó mọi so sánh answer-side phải dựa trên nhiều run: median hoặc đa số
+  pass/fail.
+
+### (3) Model tốt hơn nhưng pass rate thấp hơn (45% → 20%)
+
+**Giả thuyết ban đầu:** gpt-6-luna trả lời ngắn hơn. **Đo lại thì sai.** Số
+liệu trung bình trên 20 answers:
+
+| Run | Pass | Content tokens / answer | Từ của câu hỏi được lặp lại | Tokens có trong retrieved nhưng không có trong gold | Case fail relevance (< 0.5) |
+|---|---:|---:|---:|---:|---:|
+| gpt-4o-mini | 9 | 26.3 | 55% | 14% | 9 |
+| gpt-6-luna run 1 | 4 | 30.4 | 48% | 17% | 12 |
+| gpt-6-luna run 2 | 7 | 29.1 | 46% | 18% | 11 |
+
+**Các nguyên nhân thật:**
+
+1. **gpt-6-luna ít lặp lại từ của câu hỏi hơn.** Relevance của lab đo đúng
+   điều này, nên số case fail relevance tăng từ 9 lên 11–12.
+2. **Model dùng nhiều chi tiết đúng từ retrieved chunks hơn.** Ví dụ M03 thêm
+   quy tắc hoàn phí express. Faithfulness so với gold context phạt các chi
+   tiết này.
+3. **Noise.** Hai run gpt-6-luna đã chênh 3 cases pass, nên chỉ một phần
+   khoảng cách 9 → 4 là do model.
+
+Nhìn theo nội dung, answer của gpt-6-luna tốt hơn: A01 có redirect, M03/H02 hết
+suy luận vượt evidence. Đây là trường hợp **metric đo phong cách viết chứ
+không đo chất lượng**.
+
+### Tổng hợp nguyên nhân gốc
+
+| Vấn đề | Nguyên nhân gốc | Loại |
+|---|---|---|
+| Truncation | Budget token thiết kế cho model không-reasoning; thiếu kiểm tra `status` | Cấu hình + thiếu guard trong code |
+| Không lặp lại được | Model không hỗ trợ `temperature`/`seed`; tham số bị bỏ qua âm thầm | Đặc tính model, xử lý bằng quy trình (nhiều run) |
+| Pass rate giảm khi model tốt hơn | Relevance/faithfulness heuristic nhạy với cách diễn đạt | Giới hạn evaluator |
+| A02/A03 thiếu ý | Rule scope/privacy nằm trong corpus thay vì system prompt (xảy ra với cả hai model) | Thiết kế prompt/pipeline |
+| H03 thiếu evidence | Vocabulary mismatch trong BM25 top-5 (xảy ra với cả hai model) | Retrieval |
+
+Hai lỗi đầu chỉ xuất hiện khi đổi model. Việc đổi model nào cũng phải qua
+regression với check cấu trúc (`status`, answer hoàn chỉnh) và nhiều run, chứ
+không chỉ so average của một run.
+
+---
+
 ## 3. Failure Clustering
 
 Một root cause có thể tạo ra nhiều failures. Nhóm theo nguyên nhân có thể sửa,
@@ -457,8 +575,8 @@ Với mỗi suggestion, nêu metric dự kiến thay đổi và cách đo lại.
 > đơn lẻ dễ báo động giả hoặc bỏ lọt.
 >
 > **Gate tổng cũng có thể chặn sai lý do.** Khi đổi model, gate chặn vì
-> relevance (−0.069), nhưng đọc trace thì đó là do gpt-6-luna trả lời ngắn và ít
-> lặp từ hỏi (vd E05). Lỗi nghiêm trọng thật là **truncation của H04** không
+> relevance (−0.069), nhưng đo lại thì đó là do gpt-6-luna ít lặp lại từ của
+> câu hỏi (48% so với 55%), trong khi answer vẫn đúng (vd E05). Lỗi nghiêm trọng thật là **truncation của H04** không
 > được gate gọi tên.
 >
 > Cho OrbitTech (sai thông tin refund/warranty có chi phí thật), tôi đề xuất:
@@ -557,13 +675,17 @@ Song song, sửa evaluator để gate đáng tin:
 > 1. **Model tốt hơn nhưng pass rate thấp hơn.** Đổi sang gpt-6-luna cải thiện
 >    hành vi: A01 có redirect, H02 không còn suy luận vượt evidence, M03 không
 >    còn claim refund bịa như gpt-4o-mini. Nhưng pass rate *giảm* từ 45% xuống 20%, và
->    `run_regression()` chặn thay đổi vì relevance. Heuristic phạt câu trả lời
->    ngắn gọn và chi tiết đúng nằm ngoài gold context.
+>    `run_regression()` chặn thay đổi vì relevance. Heuristic phạt answer ít lặp
+>    lại từ của câu hỏi và phạt chi tiết đúng nằm ngoài gold context. Tôi từng
+>    đoán nguyên nhân là answer "ngắn hơn"; đo lại thì sai (30 so với 26 content
+>    tokens).
 > 2. **Lỗi nghiêm trọng nhất đến từ cấu hình, không phải chất lượng model.**
 >    Answer H04 bị cắt cụt vì reasoning tokens ăn hết budget 300 tokens. Không
 >    metric nào gọi tên lỗi này; RAGAS/DeepEval vẫn chấm faithfulness 0.80/0.75.
-> 3. **Temperature 0 không đảm bảo lặp lại được.** Hai run giống hệt cấu hình
->    cho pass rate 20% và 35%, chỉ 1/20 answers trùng nhau.
+> 3. **Temperature 0 không có tác dụng với model này.** gpt-6-luna không hỗ
+>    trợ `temperature`, nên tham số bị bỏ qua mà không báo lỗi. Hai run giống hệt
+>    cấu hình cho pass rate 20% và 35%, chỉ 1/20 answers trùng nhau; `seed` và
+>    reasoning effort cố định cũng không làm output lặp lại được.
 > 4. **Retrieval không phải bottleneck.** Tôi dự đoán BM25 sẽ là điểm yếu, nhưng
 >    recall 0.886, chỉ H03 thiếu evidence thật.
 
